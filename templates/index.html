@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Voice Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .container {
+      background: #020617;
+      width: 360px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0,0,0,0.6);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    button {
+      width: 48%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .start {
+      background: #22c55e;
+      color: black;
+    }
+
+    .stop {
+      background: #ef4444;
+      color: white;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+
+    .box {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .label {
+      font-weight: bold;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>🎙️ AI Voice Bot</h2>
+
+  <div class="row">
+    <button class="start" onclick="startListening()">Start</button>
+    <button class="stop" onclick="stopAll()">Stop</button>
+  </div>
+
+  <div class="box">
+    <div class="label">You said</div>
+    <div id="userText">—</div>
+  </div>
+
+  <div class="box">
+    <div class="label">Bot reply</div>
+    <div id="botText">—</div>
+  </div>
+
+  <div class="status" id="status">Idle</div>
+</div>
+
+<script>
+  let recognition;
+  let listening = false;
+  let speaking = false;
+
+  const userText = document.getElementById("userText");
+  const botText = document.getElementById("botText");
+  const statusText = document.getElementById("status");
+
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+
+  function startListening() {
+    if (listening) return;
+
+    listening = true;
+    statusText.innerText = "Listening...";
+    recognition.start();
+  }
+
+  function stopAll() {
+    listening = false;
+    speaking = false;
+
+    recognition.abort();
+    window.speechSynthesis.cancel();
+
+    statusText.innerText = "Stopped";
+  }
+
+  recognition.onresult = async (event) => {
+    if (!listening) return;
+
+    const text = event.results[0][0].transcript;
+    userText.innerText = text;
+    statusText.innerText = "Thinking...";
+
+    listening = false; // prevent multiple triggers
+
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text })
+      });
+
+      const data = await res.json();
+      botText.innerText = data.answer;
+
+      speak(data.answer);
+    } catch (err) {
+      botText.innerText = "Server error";
+      statusText.innerText = "Error";
+    }
+  };
+
+  function speak(text) {
+    if (!text) return;
+
+    speaking = true;
+    statusText.innerText = "Speaking...";
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.onend = () => {
+      speaking = false;
+      statusText.innerText = "Idle";
+    };
+
+    window.speechSynthesis.speak(utter);
+  }
+
+  recognition.onerror = () => {
+    listening = false;
+    statusText.innerText = "Mic error";
+  };
+</script>
+
+</body>
+</html>
